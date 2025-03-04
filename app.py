@@ -10,9 +10,7 @@ def index():
 
     if request.method == 'POST':
         liquid_template = request.form['liquid_template']  # Get the liquid template from form data.
-        print(liquid_template)
-        jinja_template = convert_liquid_to_jinja(liquid_template)
-        print(jinja_template)  # Convert the Liquid template to Jinja template.
+        jinja_template = convert_liquid_to_jinja(liquid_template)  # Convert the Liquid template to Jinja template.
 
     return render_template('index.html', liquid_template=liquid_template, jinja_template=jinja_template)
 
