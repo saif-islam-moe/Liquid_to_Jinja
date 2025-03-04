@@ -145,6 +145,7 @@ def convert_liquid_to_jinja(liquid_template):
     # Convert comments
     jinja_template = re.sub(r'{%-?\s*comment\s*-?%}(.+?){%-?\s*endcomment\s*-?%}', r'{# \1 #}', liquid_template, flags=re.DOTALL)
 
+    jinja_template = re.sub(r'{{\s*(\w+)\s*\|\s*truncate:\s*(\d+)\s*}}',  r'{{ \1[:\2] }}', jinja_template)
     # Convert increment and decrement
     jinja_template = re.sub(r'{%\s*(increment|decrement)\s+(\w+)\s*%}', convert_increment_decrement, jinja_template)
     # Convert conditions (if, elsif, else)
@@ -164,7 +165,7 @@ def convert_liquid_to_jinja(liquid_template):
     jinja_template = re.sub(r'{{\s*(\w+)\[(\d+)\]\s*\|\s*truncate:\s*(\d+)\s*}}', r'{{ \1[\2][:\3] }}', jinja_template)
 
     # Convert the truncate filter without indices
-    jinja_template = re.sub(r'{{\s*(\w+)\s*\|\s*truncate:\s*(\d+)\s*}}',  r'{{ \1[:\2] }}', jinja_template)
+    
 
     # Convert the split filter
     jinja_template = re.sub(r'{{\s*(\w+)\[(\d+)\]\s*\|\s*split\s*:\s*"([^"]+)"\s*}}', r'{{ \1[\2].split("\3") }}', jinja_template)
@@ -241,6 +242,16 @@ def convert_liquid_to_jinja(liquid_template):
     jinja_template = re.sub(
         r"{{\s*(.*?)\s*\|\s*plus:\s*(\d+)\s*}}",
         r"{{ \1 + \2 }}",
+        jinja_template
+    )
+    jinja_template = re.sub(
+        r"(\w+)\s*\|\s*truncate:(\d+)",
+        r"\1[:\2]",
+        jinja_template
+    )
+    liquid_template = re.sub(
+        r'{%\s*assign\s+(\w+)\s*=\s*(\w+)(\.[\w\.]*)?\s*\|\s*truncate:\s*(\d+)\s*%}',
+        r"{% set \1 = \2\3[:\4] %}",
         jinja_template
     )
 
