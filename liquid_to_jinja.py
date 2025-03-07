@@ -145,7 +145,13 @@ def convert_liquid_to_jinja(liquid_template):
     # Convert comments
     jinja_template = re.sub(r'{%-?\s*comment\s*-?%}(.+?){%-?\s*endcomment\s*-?%}', r'{# \1 #}', liquid_template, flags=re.DOTALL)
 
+    jinja_template = re.sub(
+        r'{%\s*assign\s+(\w+)\s*=\s*(.*?)\s*\|\s*split:\s*"(.*?)"\s*%}',
+        r"{% set \1 = (\2).split('\3') %}",
+        jinja_template
+    )
     jinja_template = re.sub(r'{{\s*(\w+)\s*\|\s*truncate:\s*(\d+)\s*}}',  r'{{ \1[:\2] }}', jinja_template)
+
     # Convert increment and decrement
     jinja_template = re.sub(r'{%\s*(increment|decrement)\s+(\w+)\s*%}', convert_increment_decrement, jinja_template)
     # Convert conditions (if, elsif, else)
@@ -224,12 +230,6 @@ def convert_liquid_to_jinja(liquid_template):
     jinja_template = re.sub(
         r"{%\s*set\s+(\w+)\s*=\s*(\w+)\s*\|\s*number_with_delimiter\s*%}",
         convert_number_with_delimiter,
-        jinja_template
-    )
-
-    jinja_template = re.sub(
-        r"{%\s*set\s+(\w+)\s*=\s*([\w\.]+)\s*\|\s*split:\s*'(\S+)'\s*%}",
-        r"{% set \1 = \2.split('\3') %}",
         jinja_template
     )
 
