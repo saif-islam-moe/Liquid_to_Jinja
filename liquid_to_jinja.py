@@ -145,7 +145,8 @@ def replace_with_operator(match):
         'plus': '+',
         'minus': '-',
         'times': '*',
-        'divided_by': '/'
+        'divided_by': '/',
+        'modulo': '%'  # Added modulo filter
     }
     variable_assigned = match.group(1)
     first_operand = match.group(2)
@@ -155,6 +156,30 @@ def replace_with_operator(match):
     # Using f-string instead of .format()
     return f"{{% set {variable_assigned} = {first_operand} {operator} {second_operand} %}}"
 
+def replacement(match):
+    variable_assigned = match.group(1)
+    filters_part = match.group(2)
+
+    # Replace 'date' filter and similar string filters
+    filters_part = re.sub(r'\|\s*date:\s*"([^"]+)"', r"|dateTimeFormatter(toFormat='\1')|int", filters_part)
+    
+    # Replace numeric filters 'plus', 'minus', 'times', 'divided_by', 'modulo'
+    math_filters = {
+        'plus': '+',
+        'minus': '-',
+        'times': '*',
+        'divided_by': '//',
+        'modulo': '%'
+    }
+    for liquid_filter, python_op in math_filters.items():
+        filters_part = re.sub(
+            rf"\|\s*{liquid_filter}:\s*(\w+)",
+            rf"{python_op}\1",
+            filters_part
+        )
+
+    # Using f-string instead of .format()
+    return f"{{% set {variable_assigned} = today(){filters_part} %}}"
 
 def convert_liquid_to_jinja(liquid_template):
     # Convert comments
@@ -285,12 +310,14 @@ def convert_liquid_to_jinja(liquid_template):
         r"{% set \1 = \2\3[:\4] %}",
         jinja_template
     )
-
     jinja_template = re.sub(
         r"{%\s*set\s+(\w+)\s*=\s*'now'\s*\|\s*date:\s*\"([^\"]+)\"\s*%}",
         r"{% set \1 = today()|dateTimeFormatter(toFormat = '\2') %}",
         jinja_template
     )
+
+    regex_pattern = r'{%\s*set\s+(\w+)\s*=\s*"now"(.*?)%}'
+    jinja_template = re.sub(regex_pattern, replacement, jinja_template)
     liquid_date_pattern = r"{%\s*set\s+(\w+)\s*=\s*\"now\"\s*\|\s*date:\s*('|\")%Y-%m-%d('|\")\s*%}"
     jinja_date_replacement = r"{% set \1 = today()|dateTimeFormatter(toFormat='%Y-%m-%d') %}"
     jinja_template = re.sub(liquid_date_pattern, jinja_date_replacement, jinja_template)
@@ -313,7 +340,7 @@ def convert_liquid_to_jinja(liquid_template):
         jinja_template
     )
 
-    regex_pattern = r"{%\s*set\s+(\w+)\s*=\s*(\w+)\s*\|\s*(plus|minus|times|divided_by):\s*(\w+)\s*%}"
+    regex_pattern = r"{%\s*set\s+(\w+)\s*=\s*(\w+)\s*\|\s*(plus|minus|times|divided_by|modulo):\s*(\w+)\s*%}"
 
     jinja_template = re.sub(regex_pattern, replace_with_operator, jinja_template)
 
