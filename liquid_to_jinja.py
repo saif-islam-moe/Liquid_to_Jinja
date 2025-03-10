@@ -43,7 +43,7 @@ def convert_variables_in_conditions(match):
 def convert_variables_in_loops(match):
     loop_variable = match.group(1)
     iterable = match.group(2)
-    iterable = re.sub(r'\{\{\${(\w+)}\}\}', r'{{ \1 }}', iterable) # Keep variable placeholders for later Jinja conversion
+    iterable = re.sub(r'\{\{\${(\w+)}\}\}', r'{{\1}}', iterable) # Keep variable placeholders for later Jinja conversion
     return f'{{% for {loop_variable} in {iterable} %}}'
 
 def remove_inner_double_curly_braces(match):
@@ -68,9 +68,9 @@ def convert_increment_decrement(match):
     operation = "set"  # Default to set for increment and decrement
     variable_name = match.group(1).strip()
     if match.group(0).startswith("{% increment"):
-        return f"{{% {operation} {variable_name} = {variable_name} + 1 %}}"
+        return f"{{%{operation} {variable_name} = {variable_name} + 1%}}"
     elif match.group(0).startswith("{% decrement"):
-        return f"{{% {operation} {variable_name} = {variable_name} - 1 %}}"
+        return f"{{%{operation} {variable_name} = {variable_name} - 1%}}"
     return match.group(0) # Fallback if not increment or decrement
 
 def convert_string_filters(match):
@@ -162,25 +162,25 @@ def convert_liquid_to_jinja(liquid_template):
     jinja_template = re.sub(r'{%\s*for\s+(.*?)\s*in\s+(.*?)\s*%}', convert_variables_in_loops, jinja_template)
 
     # **NEW: Convert set with string slicing**
-    jinja_template = re.sub(r'{%\s*set\s+(\w+)\s*=\s*(\w+\.\w+)\s*\[:(\d+)\]\s*%}', r'{% set \1 = \2[:\3] %}', jinja_template)
+    jinja_template = re.sub(r'{%\s*set\s+(\w+)\s*=\s*(\w+\.\w+)\s*\[:(\d+)\]\s*%}', r'{%set \1 = \2[:\3]%}', jinja_template)
 
     # Convert the multiply (`times`) filter
-    jinja_template = re.sub(r'{%\s*assign\s+(\w+)\s*=\s*(\d+)\s*\|\s*times:\s*(\d+)\s*%}', r'{% set \1 = \2 * \3 %}', jinja_template)
+    jinja_template = re.sub(r'{%\s*assign\s+(\w+)\s*=\s*(\d+)\s*\|\s*times:\s*(\d+)\s*%}', r'{%set \1 = \2 * \3%}', jinja_template)
 
     # Convert the truncate filter with indices first
-    jinja_template = re.sub(r'{{\s*(\w+)\[(\d+)\]\s*\|\s*truncate:\s*(\d+)\s*}}', r'{{ \1[\2][:\3] }}', jinja_template)
+    jinja_template = re.sub(r'{{\s*(\w+)\[(\d+)\]\s*\|\s*truncate:\s*(\d+)\s*}}', r'{{\1[\2][:\3]}}', jinja_template)
 
     # Convert the truncate filter without indices
     
 
     # Convert the split filter
-    jinja_template = re.sub(r'{{\s*(\w+)\[(\d+)\]\s*\|\s*split\s*:\s*"([^"]+)"\s*}}', r'{{ \1[\2].split("\3") }}', jinja_template)
-    jinja_template = re.sub(r'{{\s*(\w+)\s*\|\s*split\s*:\s*"([^"]+)"\s*}}', r'{{ \1.split("\2") }}', jinja_template)
+    jinja_template = re.sub(r'{{\s*(\w+)\[(\d+)\]\s*\|\s*split\s*:\s*"([^"]+)"\s*}}', r'{{\1[\2].split("\3")}}', jinja_template)
+    jinja_template = re.sub(r'{{\s*(\w+)\s*\|\s*split\s*:\s*"([^"]+)"\s*}}', r'{{\1.split("\2")}}', jinja_template)
 
     # Convert custom_attribute.${variable_name}
-    jinja_template = re.sub(r'\{\{\s*custom_attribute\.\$\{(\w+)\}\s*\}\}', r"{{ UserAttribute['\1'] }}", jinja_template)
-    jinja_template = re.sub(r'\{\{\s*campaign\.\$\{name\}\s*\}\}',r"{{ CampaignAttribute['c_n'] }}",jinja_template)
-    jinja_template = re.sub(r'\{\{\s*content_blocks\.\$\{(\w+)\}\s*\}\}',r"{{ ContentBlock['\1'] }}",jinja_template)
+    jinja_template = re.sub(r'\{\{\s*custom_attribute\.\$\{(\w+)\}\s*\}\}', r"{{UserAttribute['\1']}}", jinja_template)
+    jinja_template = re.sub(r'\{\{\s*campaign\.\$\{name\}\s*\}\}',r"{{CampaignAttribute['c_n']}}",jinja_template)
+    jinja_template = re.sub(r'\{\{\s*content_blocks\.\$\{(\w+)\}\s*\}\}',r"{{ContentBlock['\1']}}",jinja_template)
 
 
     # Convert string filters (downcase, upcase, capitalize, strip, escape, url_encode, newline_to_br, replace, remove, slice)
@@ -189,7 +189,7 @@ def convert_liquid_to_jinja(liquid_template):
     jinja_template = re.sub(r"{%\s*set\s+(\w+)\s*=\s*(\w+)\.first\s*%}", convert_dot_first_to_index_zero, jinja_template )
 
     # Convert general assign statements; this should be placed after the specific times and truncate ones
-    jinja_template = re.sub(r'{%\s*assign\s+(\w+)\s*=(.*?)\s*%}', r'{% set \1 = \2 %}', jinja_template)
+    jinja_template = re.sub(r'{%\s*assign\s+(\w+)\s*=(.*?)\s*%}', r'{% set \1 = \2%}', jinja_template)
 
     # Convert case and capture blocks
     jinja_template = re.sub(r'{%\s*case\s+(.*?)\s*%}(.*?){%\s*endcase\s*%}', convert_case_to_if_elif, jinja_template, flags=re.DOTALL)
@@ -200,7 +200,7 @@ def convert_liquid_to_jinja(liquid_template):
 
 
     # Fallback conversion for truncate filters (keep this as it worked)
-    jinja_template = re.sub(r'\|\s*truncate:\s*(\d+)\s*%}', r'[:\1] %}', jinja_template)
+    jinja_template = re.sub(r'\|\s*truncate:\s*(\d+)\s*%}', r'[:\1]%}', jinja_template)
 
     # Broader fallback conversion for any remaining assign statements
     jinja_template = re.sub(r'{%\s*assign\s+(.*?)\s*%}', r'{% set \1 %}', jinja_template)
@@ -247,7 +247,12 @@ def convert_liquid_to_jinja(liquid_template):
 
     jinja_template = re.sub(
         r"{{\s*(.*?)\s*\|\s*plus:\s*(\d+)\s*}}",
-        r"{{ \1 + \2 }}",
+        r"{{\1 + \2}}",
+        jinja_template
+    )
+    jinja_template = re.sub(
+        r"{{\s*(.*?)\s*\|\s*minus:\s*(\d+)\s*}}",
+        r"{{\1 - \2}}",
         jinja_template
     )
     jinja_template = re.sub(
@@ -255,13 +260,19 @@ def convert_liquid_to_jinja(liquid_template):
         r"\1[:\2]",
         jinja_template
     )
-    liquid_template = re.sub(
-        r'{%\s*assign\s+(\w+)\s*=\s*(\w+)(\.[\w\.]*)?\s*\|\s*truncate:\s*(\d+)\s*%}',
+    jinja_template = re.sub(
+        r'{%\s*set\s+(\w+)\s*=\s*(\w+)(\.[\w\.]*)?\s*\|\s*truncate:\s*(\d+)\s*%}',
         r"{% set \1 = \2\3[:\4] %}",
         jinja_template
     )
 
-    jinja_template = replace_hyphens_with_underscores(jinja_template)
+    jinja_template = re.sub(
+        r"{%\s*set\s+(\w+)\s*=\s*\"now\"\s*\|\s*date:\s*'([^']+)' %}",
+        r"{% set \1 = today()|dateTimeFormatter(toFormat='\2') %}",
+        jinja_template
+    )
+
+    jinja_template = replace_hyphens_with_underscores(jinja_template).strip()
 
     # Ensure final value is a string
     return jinja_template or ''
