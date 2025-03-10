@@ -140,6 +140,21 @@ def replace_hyphens_with_underscores(input_string):
     
     return replaced_string
 
+def replace_with_operator(match):
+    math_filters_to_operators = {
+        'plus': '+',
+        'minus': '-',
+        'times': '*',
+        'divided_by': '/'
+    }
+    variable_assigned = match.group(1)
+    first_operand = match.group(2)
+    math_filter = match.group(3)
+    second_operand = match.group(4)
+    operator = math_filters_to_operators[math_filter]
+    # Using f-string instead of .format()
+    return f"{{% set {variable_assigned} = {first_operand} {operator} {second_operand} %}}"
+
 
 def convert_liquid_to_jinja(liquid_template):
     # Convert comments
@@ -150,6 +165,11 @@ def convert_liquid_to_jinja(liquid_template):
     jinja_template = re.sub(
         r'{%\s*assign\s+(\w+)\s*=\s*"(.*?)"\s*\|\s*split:\s*"(.*?)"\s*%}',
         r"{% set \1 = '\2'.split('\3') %}",
+        jinja_template
+    )
+    jinja_template = re.sub(
+        r"\{\{custom_attribute\.\$\{(\w+)\}\}\}\s*\|\s*join:\s*['\"](.*?)['\"]\}\}",
+        r"{{\1.join('\2')}}",
         jinja_template
     )
     # Convert increment and decrement
@@ -267,10 +287,35 @@ def convert_liquid_to_jinja(liquid_template):
     )
 
     jinja_template = re.sub(
-        r"{%\s*set\s+(\w+)\s*=\s*\"now\"\s*\|\s*date:\s*'([^']+)' %}",
-        r"{% set \1 = today()|dateTimeFormatter(toFormat='\2') %}",
+        r"{%\s*set\s+(\w+)\s*=\s*'now'\s*\|\s*date:\s*\"([^\"]+)\"\s*%}",
+        r"{% set \1 = today()|dateTimeFormatter(toFormat = '\2') %}",
         jinja_template
     )
+    liquid_date_pattern = r"{%\s*set\s+(\w+)\s*=\s*\"now\"\s*\|\s*date:\s*('|\")%Y-%m-%d('|\")\s*%}"
+    jinja_date_replacement = r"{% set \1 = today()|dateTimeFormatter(toFormat='%Y-%m-%d') %}"
+    jinja_template = re.sub(liquid_date_pattern, jinja_date_replacement, jinja_template)
+
+    jinja_template = re.sub(
+        r"{%\s*set\s+(\w+)\s*=\s*(\w+)\s*\|\s*split:\s*['\"](.*?)['\"]\s*%}",
+        r"{% set \1 = \2.split('\3') %}",
+        jinja_template
+    )
+
+    jinja_template = re.sub(
+        r"{%\s*set\s+(\w+)\s*=\s*(\w+)\s*\|\s*minus:\s*(\w+)\s*%}",
+        r"{% set \1 = \2 - \3 %}",
+        jinja_template
+    )
+
+    jinja_template = re.sub(
+        r"{%\s*set\s+(\w+)\s*=\s*(\w+)\s*\[\s*(\d+)\s*\]\s*\|\s*strip\s*\|\s*slice:\s*(\d+),\s*(\d+)\s*%}",
+        r"{% set \1 = \2[\3].strip()[\4:\5] %}",
+        jinja_template
+    )
+
+    regex_pattern = r"{%\s*set\s+(\w+)\s*=\s*(\w+)\s*\|\s*(plus|minus|times|divided_by):\s*(\w+)\s*%}"
+
+    jinja_template = re.sub(regex_pattern, replace_with_operator, jinja_template)
 
     jinja_template = replace_hyphens_with_underscores(jinja_template).strip()
 
