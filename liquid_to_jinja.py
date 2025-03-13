@@ -343,6 +343,14 @@ def convert_liquid_to_jinja(liquid_template):
     regex_pattern = r"{%\s*set\s+(\w+)\s*=\s*(\w+)\s*\|\s*(plus|minus|times|divided_by|modulo):\s*(\w+)\s*%}"
 
     jinja_template = re.sub(regex_pattern, replace_with_operator, jinja_template)
+    regex_pattern = r'\|\s*plus:\s*(\d+)'
+    jinja_template = re.sub(regex_pattern, r'+\1', jinja_template)
+    regex_pattern = r'\|\s*minus:\s*(\d+)'
+    jinja_template = re.sub(regex_pattern, r'-\1', jinja_template)
+    regex_pattern = r'\|\s*times:\s*(\d+)'
+    jinja_template = re.sub(regex_pattern, r'*\1', jinja_template)
+    regex_pattern = r'\|\s*divided_by:\s*(\d+)'
+    jinja_template = re.sub(regex_pattern, r'//\1', jinja_template)
 
     jinja_template = replace_hyphens_with_underscores(jinja_template).strip()
 
