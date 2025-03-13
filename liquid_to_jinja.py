@@ -351,6 +351,42 @@ def convert_liquid_to_jinja(liquid_template):
     jinja_template = re.sub(regex_pattern, r'*\1', jinja_template)
     regex_pattern = r'\|\s*divided_by:\s*(\d+)'
     jinja_template = re.sub(regex_pattern, r'//\1', jinja_template)
+    regex_pattern = r'\|\s*modulo:\s*(\d+)'
+    jinja_template = re.sub(regex_pattern, r'%\1', jinja_template)
+    #for join filter
+    jinja_template = re.sub(r'{{\s*(\w+)\s*\|\s*join:\s*["\'](\w+)["\']\s*}}', r'{{ \1.join("\2") }}', jinja_template)
+
+    regex_pattern = (
+        r"{%\s*set\s+(\w+)\s*=\s*"  # match the start of 'set' and capture the variable name
+        r"([^\|]+)"  # match the variable path before the pipe symbol
+        r"\s*\|\s*split\s*:\s*\"([^\"]+)\"\s*%}"  # match the 'split' filter and capture the split pattern
+    )
+
+    def split_replacement(match):
+        # Extract captured groups
+        var_name, var_path, split_pattern = match.groups()
+        # Build the Jinja2 expression
+        jinja_expr = f"{{% set {var_name} = {var_path}.split('{split_pattern}') %}}"
+        return jinja_expr
+
+    # Perform regex substitution
+    jinja_template = re.sub(regex_pattern, split_replacement, jinja_template)
+
+    regex_pattern = (
+        r"{%\s*set\s+(\w+)\s*=\s*"  # match the start of 'set' and capture the variable name
+        r"([^\|]+)"  # match the variable path before the pipe symbol
+        r"\s*\|\s*reverse\s*%}"  # match the 'reverse' filter
+    )
+
+    def reverse_replacement(match):
+        # Extract captured groups
+        var_name, var_path = match.groups()
+        # Build the Jinja2 expression
+        jinja_expr = f"{{% set {var_name} = {var_path} | list | reverse | join('') %}}"
+        return jinja_expr
+
+    # Perform regex substitution
+    jinja_template = re.sub(regex_pattern, reverse_replacement, jinja_template)
 
     jinja_template = replace_hyphens_with_underscores(jinja_template).strip()
 
