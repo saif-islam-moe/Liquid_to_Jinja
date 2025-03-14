@@ -73,6 +73,40 @@ def convert_increment_decrement(match):
         return f"{{%{operation} {variable_name} = {variable_name} - 1%}}"
     return match.group(0) # Fallback if not increment or decrement
 
+def handle_for_loop_condition(liquid_template):
+    # Match Liquid for-loop pattern
+    for_loop_pattern = r"{%\s*for\s+(\w+)\s+in\s+([\w.]+)\s*%}(.*?){%\s*endfor\s*%}"
+    matches = re.findall(for_loop_pattern, liquid_template, re.DOTALL)
+
+    if not matches:
+        return liquid_template  # Return original if no loops found
+
+    # Extract the first iterable dynamically
+    _, first_iterable, _ = matches[0]
+
+    # Start with a dynamic conditional check based on the first iterable
+    jinja_template = f"{{% if {first_iterable} is not none and {first_iterable} is defined %}}\n"
+
+    for match in matches:
+        loop_var, iterable, loop_body = match
+
+        # Case when there is exactly one element
+        jinja_template += f"    {{% if {iterable}|length == 1 %}}\n"
+        jinja_template += f"        {{% set {loop_var} = {iterable}[0] %}}\n"
+        jinja_template += f"        {loop_body.strip()}\n"
+        
+        # Case when there are multiple elements
+        jinja_template += f"    {{% elif {iterable}|length > 1 %}}\n"
+        jinja_template += f"        {{% for {loop_var} in {iterable} %}}\n"
+        jinja_template += f"            {loop_body.strip()}\n"
+        jinja_template += f"        {{% endfor %}}\n"
+        
+        jinja_template += f"    {{% endif %}}\n"
+
+    jinja_template += "{% endif %}\n"
+
+    return jinja_template
+
 def convert_string_filters(match):
     print("here")
     variable = match.group(1)
@@ -184,8 +218,31 @@ def replacement(match):
 def convert_liquid_to_jinja(liquid_template):
     # Convert comments
     jinja_template = re.sub(r'{%-?\s*comment\s*-?%}(.+?){%-?\s*endcomment\s*-?%}', r'{# \1 #}', liquid_template, flags=re.DOTALL)
+    # jinja_template = handle_for_loop_condition(jinja_template)
 
     jinja_template = re.sub(r'{{\s*(\w+)\s*\|\s*truncate:\s*(\d+)\s*}}',  r'{{ \1[:\2] }}', jinja_template)
+
+    for_loop_pattern = r"{%\s*for\s+(\w+)\s+in\s+([\w.]+)\s*%}(.*?){%\s*endfor\s*%}"
+    
+    # Function to replace the matched for-loop with Jinja syntax
+    def replace_liquid_for_loop(match):
+        print(match.groups())
+        loop_var, iterable, loop_body = match.groups()
+
+        # Construct Jinja for-loop syntax
+        jinja_for_loop = f"{{% if {iterable} is not none %}}\n"
+        jinja_for_loop += f"{{% if {iterable}|length == 1 %}}\n"
+        jinja_for_loop += f"{{% set {loop_var} = {iterable}[0] %}}\n"
+        jinja_for_loop += loop_body.strip() + "\n"
+        jinja_for_loop += f"{{% else %}}\n{{% for {loop_var} in {iterable} %}}\n"
+        jinja_for_loop += loop_body.strip() + "\n"
+        jinja_for_loop += f"{{% endfor %}}\n{{% endif %}}\n"
+
+        return jinja_for_loop
+    
+    # Replace all Liquid for-loops with Jinja for-loops
+    jinja_template = re.sub(for_loop_pattern, replace_liquid_for_loop, jinja_template, flags=re.DOTALL)
+
 
     jinja_template = re.sub(
         r'{%\s*assign\s+(\w+)\s*=\s*"(.*?)"\s*\|\s*split:\s*"(.*?)"\s*%}',
